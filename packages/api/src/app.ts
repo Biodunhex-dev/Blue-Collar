@@ -20,7 +20,9 @@ import responseTimeRoutes from './routes/response-time.js'
 import insuranceRoutes from './routes/insurance.js'
 import referralRoutes from './routes/referral.js'
 import paymentRoutes from './routes/payments.js'
+import vitalsRoutes from './routes/vitals.js'
 import { auditMiddleware } from './middleware/audit.js'
+import { sanitize } from './middleware/sanitize.js'
 import { versionMiddleware, deprecationWarning } from './middleware/version.js'
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js'
 import { readFileSync } from 'node:fs'
@@ -43,6 +45,7 @@ redis.connect().catch(() => {})
 app.use(cors())
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
+app.use(sanitize)
 app.use(requestLogger)
 app.use(methodOverride('X-HTTP-Method'))
 app.use(passport.initialize())
@@ -50,6 +53,21 @@ app.use(versionMiddleware)
 
 app.use(auditMiddleware)
 
+app.use('/api/auth', authRoutes)
+app.use('/api/categories', categoryRoutes)
+app.use('/api/workers', workerRoutes)
+app.use('/api/admin', adminRoutes)
+app.use('/api/users', userRoutes)
+app.use('/api/disputes', disputeRoutes)
+app.use('/api/recommendations', recommendationRoutes)
+app.use('/api/webhooks', webhookRoutes)
+app.use('/api/verifications', verificationRoutes)
+app.use('/api/audit', auditRoutes)
+app.use('/api', responseTimeRoutes)
+app.use('/api/workers', insuranceRoutes)
+app.use('/api/referrals', referralRoutes)
+app.use('/api/payments', paymentRoutes)
+app.use('/api', vitalsRoutes)
 // ── Versioned routes (v1) ─────────────────────────────────────────────────────
 app.use('/api/v1/auth', authRoutes)
 app.use('/api/v1/categories', categoryRoutes)
@@ -84,7 +102,11 @@ app.use('/api', deprecationWarning, (req, res) => {
   res.redirect(301, target)
 })
 
-app.get('/health', async (_req, res) => {
+app.get('/health', (_req, res) => {
+  res.status(200).json({ status: 'ok' })
+})
+
+app.get('/ready', async (_req, res) => {
   const checks: Record<string, { status: 'ok' | 'error'; latencyMs?: number; error?: string }> = {}
 
   // Database check
